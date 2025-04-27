@@ -18,6 +18,17 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  // Extract UserGreeting from children for mobile top bar
+  let userGreeting = null;
+  let restChildren: React.ReactNode[] = [];
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && child.type && (child.type as any).name === 'UserGreeting') {
+      userGreeting = child;
+    } else {
+      restChildren.push(child);
+    }
+  });
+
   return (
     <>
       {/* Hamburger button for mobile */}
@@ -44,19 +55,28 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
         `}
         style={{ background: 'var(--left-panel-bg)' }}
       >
-        {/* Close button for mobile */}
-        <div className="flex items-center justify-between mb-6 md:hidden">
-          <span className="text-xl font-bold">Menu</span>
-          <button
-            className="text-gray-400 hover:text-white"
-            onClick={closeSidebar}
-            aria-label="Close sidebar"
-          >
-            &times;
-          </button>
+        {/* Mobile top bar: UserGreeting + settings/logout */}
+        <div className="flex flex-row items-center justify-between mb-6 md:hidden gap-2">
+          <div className="flex items-center font-semibold text-lg flex-1">{userGreeting}</div>
+          <div className="flex items-center space-x-3">
+            <button
+              className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Settings"
+              onClick={() => { closeSidebar(); router.push('/dashboard/settings'); }}
+            >
+              <Settings className="w-6 h-6" />
+            </button>
+            <button
+              className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Logout"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-6 h-6" />
+            </button>
+          </div>
         </div>
-        {/* Settings and Logout always at the top on mobile, top-right on desktop */}
-        <div className="flex space-x-3 mb-4 md:absolute md:top-5 md:right-5 md:mb-0">
+        {/* Desktop settings/logout top right */}
+        <div className="hidden md:flex space-x-3 mb-4 md:absolute md:top-5 md:right-5 md:mb-0">
           <button
             className="text-gray-400 hover:text-white transition-colors"
             aria-label="Settings"
@@ -72,7 +92,11 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
             <LogOut className="w-6 h-6" />
           </button>
         </div>
-        <div className="flex-1 flex flex-col gap-5">{children}</div>
+        <div className="flex-1 flex flex-col gap-5">
+          {/* Only show UserGreeting below top bar on desktop */}
+          <div className="hidden md:block">{userGreeting}</div>
+          {restChildren}
+        </div>
       </aside>
     </>
   );

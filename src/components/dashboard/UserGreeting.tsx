@@ -6,7 +6,7 @@ interface UserGreetingProps {
 }
 
 const UserGreeting: React.FC<UserGreetingProps> = ({ displayName, email }) => (
-  <div className="mb-6 flex flex-col items-start">
+  <div>
     <span className="text-lg font-semibold truncate">Hi, {displayName ? displayName : email ? email : "User"}!</span>
   </div>
 );
