@@ -486,7 +486,14 @@ export default function DashboardPage() {
           ) : selectedNote ? (
             <NoteEditor
               note={selectedNote}
-              onChange={(updatedNote: Note) => setSelectedNote(notes.find(n => n.id === updatedNote.id) || updatedNote)}
+              onChange={(updatedNote) => {
+                const fullNote = notes.find(n => n.id === updatedNote.id);
+                setSelectedNote(
+                  fullNote
+                    ? fullNote
+                    : { ...selectedNote, ...updatedNote }
+                );
+              }}
               onUpdate={handleUpdateNote}
               updating={updating}
               updateError={updateError}
