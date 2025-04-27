@@ -394,13 +394,18 @@ export default function DashboardPage() {
           ) : selectedNote ? (
             <NoteEditor
               note={selectedNote}
-              onChange={(updatedNote) => {
-                const fullNote = notes.find(n => n.id === updatedNote.id);
-                setSelectedNote(
-                  fullNote
-                    ? fullNote
-                    : { ...selectedNote, ...updatedNote }
-                );
+              onChange={(updatedPartialNote) => {
+                // Directly merge the changes into the selectedNote state
+                setSelectedNote(prevNote => {
+                  if (!prevNote) return null; // Should not happen if selectedNote exists
+                  // Ensure we only update fields present in updatedPartialNote
+                  const changes = {
+                      ...(updatedPartialNote.title !== undefined && { title: updatedPartialNote.title }),
+                      ...(updatedPartialNote.subtitle !== undefined && { subtitle: updatedPartialNote.subtitle }),
+                      ...(updatedPartialNote.content !== undefined && { content: updatedPartialNote.content }),
+                  };
+                  return { ...prevNote, ...changes };
+                });
               }}
               onUpdate={handleUpdateNote}
               updating={updating}
