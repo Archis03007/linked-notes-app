@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from 'next/navigation';
 import { supabase } from "@/utils/supabaseClient";
 import Sidebar from "@/components/dashboard/Sidebar";
 import UserGreeting from "@/components/dashboard/UserGreeting";
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const [editNoteTagIds, setEditNoteTagIds] = useState<string[]>([]);
   const [showNewNoteTagSelector, setShowNewNoteTagSelector] = useState(false);
   const [showEditNoteTagSelector, setShowEditNoteTagSelector] = useState(false);
+  const router = useRouter();
   const tagUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -147,6 +149,26 @@ export default function DashboardPage() {
       if (tagUpdateTimeout.current) clearTimeout(tagUpdateTimeout.current);
     };
   }, [editNoteTagIds, selectedNote]);
+
+  // Handler for backlink clicks
+  const handleBacklinkClick = (title: string) => {
+    console.log('Backlink clicked:', title);
+    // Find the note by title (case-insensitive)
+    const foundNote = notes.find(n => n.title?.trim().toLowerCase() === title.trim().toLowerCase());
+
+    if (foundNote) {
+      console.log('Found note:', foundNote);
+      // Select the note to display it in the editor
+      setSelectedNote(foundNote);
+      setCreating(false); // Ensure we are in edit mode
+      // Optional: If you want to change the URL without full page reload
+      // router.push(`/dashboard?note=${foundNote.id}`, { scroll: false });
+    } else {
+      console.log('Note not found for title:', title);
+      // Optionally show a notification
+      alert('Note with title "' + title + '" not found.');
+    }
+  };
 
   const handleCreateNote = () => {
     setCreating(true);
@@ -459,11 +481,12 @@ export default function DashboardPage() {
               onTagsChange={setNewNoteTagIds}
               colorMap={COLOR_MAP}
               onOpenTagSelector={() => setShowNewNoteTagSelector(true)}
+              onLinkClick={handleBacklinkClick}
             />
           ) : selectedNote ? (
             <NoteEditor
               note={selectedNote}
-              onChange={note => setSelectedNote(note)}
+              onChange={(updatedNote: Note) => setSelectedNote(notes.find(n => n.id === updatedNote.id) || updatedNote)}
               onUpdate={handleUpdateNote}
               updating={updating}
               updateError={updateError}
@@ -472,6 +495,8 @@ export default function DashboardPage() {
               onTagsChange={setEditNoteTagIds}
               colorMap={COLOR_MAP}
               onOpenTagSelector={() => setShowEditNoteTagSelector(true)}
+              notes={notes}
+              onLinkClick={handleBacklinkClick}
             />
           ) : (
             <div className="text-gray-600 dark:text-gray-300 text-xl m-auto">Select a note to view or edit.</div>

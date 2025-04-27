@@ -1,4 +1,8 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { BacklinkMark } from './NoteEditor';
+import Placeholder from '@tiptap/extension-placeholder';
 
 interface Note {
   title: string;
@@ -23,10 +27,35 @@ interface CreateNoteFormProps {
   onTagsChange: (tagIds: string[]) => void;
   colorMap: Record<string, string>;
   onOpenTagSelector: () => void;
+  onLinkClick: (title: string) => void;
 }
 
-const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSave, saving, error, tags, selectedTagIds, onTagsChange, colorMap, onOpenTagSelector }) => {
+const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSave, saving, error, tags, selectedTagIds, onTagsChange, colorMap, onOpenTagSelector, onLinkClick }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      BacklinkMark.configure({
+        onLinkClick: onLinkClick,
+      }),
+      Placeholder.configure({
+        placeholder: 'Write your note here...'
+      }),
+    ],
+    content: newNote.content || '',
+    onUpdate({ editor }) {
+      onChange({ ...newNote, content: editor.getHTML() });
+    },
+    autofocus: true,
+  });
+
+  useEffect(() => {
+    if (editor && newNote.content !== editor.getHTML()) {
+      editor.commands.setContent(newNote.content || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newNote.content]);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange({ ...newNote, content: e.target.value });
@@ -86,14 +115,9 @@ const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSa
           + Add Tags
         </button>
       </div>
-      <textarea
-        ref={textareaRef}
-        className="bg-transparent border-0 rounded p-0 focus:outline-none focus:border-0 text-base resize-none overflow-hidden"
-        value={newNote.content}
-        onChange={handleContentChange}
-        placeholder="Write your note here..."
-        rows={1}
-        style={{ minHeight: "40px" }}
+      <EditorContent
+        editor={editor}
+        className="ProseMirror bg-transparent border-0 rounded p-0 focus:outline-none text-base min-h-[40px]"
       />
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <button

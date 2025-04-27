@@ -35,3 +35,30 @@ body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;     /* Firefox */
 }
+
+/* Tiptap editor styling */
+.ProseMirror {
+  outline: none !important;
+  border: none !important;
+}
+
+.ProseMirror:focus {
+  outline: none !important;
+  border: none !important;
+}
+
+/* Tiptap placeholder styling */
+.ProseMirror p[data-placeholder]:first-child::before {
+  content: attr(data-placeholder);
+  color: #888;
+  position: absolute;
+  pointer-events: none;
+}
+.ProseMirror p[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #888;
+  pointer-events: none;
+}
+.ProseMirror p[data-placeholder] {
+  position: relative;
+}

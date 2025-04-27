@@ -1,35 +1,51 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Mark } from '@tiptap/core';
+import { Mark, markInputRule } from '@tiptap/core';
+import { Plugin } from 'prosemirror-state';
+import Placeholder from '@tiptap/extension-placeholder';
+
+// Create the plugin once, with a callback for onLinkClick
+function createBacklinkClickPlugin(onLinkClick: (text: string) => void) {
+  return new Plugin({
+    props: {
+      handleClickOn(view: any, pos: number, node: any, nodePos: number, event: MouseEvent, direct: boolean) {
+        if ((event.target as HTMLElement).getAttribute('data-backlink') !== null) {
+          const text = (event.target as HTMLElement).textContent || '';
+          if (typeof onLinkClick === 'function') {
+            onLinkClick(text);
+          }
+          return true;
+        }
+        return false;
+      }
+    }
+  });
+}
 
 // Custom mark for [[...]]
-const BacklinkMark = Mark.create({
+export const BacklinkMark = Mark.create({
   name: 'backlink',
   parseHTML() {
     return [{ tag: 'span[data-backlink]' }];
   },
   renderHTML({ HTMLAttributes }) {
-    return ['span', { ...HTMLAttributes, 'data-backlink': '', style: 'color: #a78bfa;' }, 0];
+    return ['span', { ...HTMLAttributes, 'data-backlink': '', style: 'color: #a78bfa; cursor: pointer;' }, 0];
   },
   addInputRules() {
     return [
-      {
-        // Match [[text]] and only mark the inner text
-        find: /\[\[(.*?)\]\]/g,
-        handler: ({ state, range, match }: { state: import('prosemirror-state').EditorState, range: { from: number, to: number }, match: RegExpMatchArray }) => {
-          const innerText = match[1];
-          const { tr } = state;
-          tr.delete(range.from, range.to);
-          tr.insertText(innerText, range.from);
-          tr.addMark(range.from, range.from + innerText.length, (this as any).type.create());
-        }
-      }
+      markInputRule({
+        find: /\[\[([^\]\s]+)\]\]$/,
+        type: this.type,
+      }),
     ];
+  },
+  addProseMirrorPlugins() {
+    return [createBacklinkClickPlugin(this.options.onLinkClick)];
   }
 });
 
-interface Note {
+interface EditableNote {
   id: string;
   title: string;
   subtitle: string;
@@ -42,9 +58,16 @@ interface Tag {
   color: string;
 }
 
+interface Note {
+  id: string;
+  title: string;
+  subtitle: string;
+  content: string;
+}
+
 interface NoteEditorProps {
   note: Note;
-  onChange: (note: Note) => void;
+  onChange: (note: EditableNote) => void;
   onUpdate: () => void;
   updating: boolean;
   updateError: string | null;
@@ -54,36 +77,26 @@ interface NoteEditorProps {
   colorMap: Record<string, string>;
   onOpenTagSelector: () => void;
   notes: Note[];
-  onLinkClick: (note: Note) => void;
+  onLinkClick: (title: string) => void;
 }
 
-const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updating, updateError, tags, selectedTagIds, onTagsChange, colorMap, onOpenTagSelector }) => {
+const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updating, updateError, tags, selectedTagIds, onTagsChange, colorMap, onOpenTagSelector, notes, onLinkClick }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Tiptap editor setup
   const editor = useEditor({
     extensions: [
       StarterKit,
-      BacklinkMark.extend({
-        addInputRules() {
-          return [
-            {
-              find: /\[\[(.*?)\]\]/g,
-              handler: ({ state, range, match }: { state: import('prosemirror-state').EditorState, range: { from: number, to: number }, match: RegExpMatchArray }) => {
-                const innerText = match[1];
-                const { tr } = state;
-                tr.delete(range.from, range.to);
-                tr.insertText(innerText, range.from);
-                tr.addMark(range.from, range.from + innerText.length, (this as any).type.create());
-              }
-            }
-          ];
-        }
+      BacklinkMark.configure({
+        onLinkClick: onLinkClick,
+      }),
+      Placeholder.configure({
+        placeholder: 'Write your note here...'
       })
     ],
     content: note.content,
     onUpdate({ editor }) {
-      onChange({ ...note, content: editor.getHTML() });
+      onChange({ id: note.id, title: note.title, subtitle: note.subtitle, content: editor.getHTML() });
     },
   });
 
@@ -98,18 +111,26 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updat
     onTagsChange(selectedTagIds.filter(tid => tid !== id));
   };
 
+  // Function to re-parse the editor content and apply backlink marks to all [[...]] patterns
+  function reparsedBacklinks(editor: any) {
+    const html = editor.getHTML();
+    // Replace all [[...]] with just the inner text wrapped in a span
+    const newHtml = html.replace(/\[\[(.*?)\]\]/g, (_match: string, p1: string) => `<span data-backlink style="color: #a78bfa; cursor: pointer;">${p1}</span>`);
+    editor.commands.setContent(newHtml);
+  }
+
   return (
     <>
       <input
         className="text-3xl font-bold bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-blue-500 mb-2 px-0"
         value={note.title}
-        onChange={e => onChange({ ...note, title: e.target.value })}
+        onChange={e => onChange({ id: note.id, title: e.target.value, subtitle: note.subtitle, content: note.content })}
         placeholder="Title"
       />
       <input
         className="text-xl bg-transparent border-0 border-b border-gray-200 dark:border-gray-700 focus:outline-none focus:border-blue-400 mb-2 px-0"
         value={note.subtitle}
-        onChange={e => onChange({ ...note, subtitle: e.target.value })}
+        onChange={e => onChange({ id: note.id, title: note.title, subtitle: e.target.value, content: note.content })}
         placeholder="Subtitle"
       />
       <div className="flex items-center justify-between mb-2">
@@ -155,6 +176,12 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updat
         disabled={updating}
       >
         {updating ? "Updating..." : "Update"}
+      </button>
+      <button
+        className="mt-2 bg-blue-600 text-white px-4 py-1 rounded"
+        onClick={() => editor && reparsedBacklinks(editor)}
+      >
+        Re-parse Backlinks
       </button>
     </>
   );
