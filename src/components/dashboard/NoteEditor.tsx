@@ -177,12 +177,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updat
       >
         {updating ? "Updating..." : "Update"}
       </button>
-      <button
-        className="mt-2 bg-blue-600 text-white px-4 py-1 rounded"
-        onClick={() => editor && reparsedBacklinks(editor)}
-      >
-        Re-parse Backlinks
-      </button>
     </>
   );
 };

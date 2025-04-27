@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
+import { useAuth } from "@/components/AuthProvider";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -14,6 +15,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+  const { setUsername } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +26,19 @@ export default function AuthForm({ mode }: AuthFormProps) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
       else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", user.id)
+            .single();
+          if (profile && profile.name) {
+            setUsername(profile.name);
+          } else {
+            setUsername(user.user_metadata?.name || user.email || "");
+          }
+        }
         setSuccess("Logged in! Redirecting...");
         setTimeout(() => router.push("/dashboard"), 1000);
       }

@@ -11,6 +11,7 @@ import NoteEditor from "@/components/dashboard/NoteEditor";
 import CreateNoteForm from "@/components/dashboard/CreateNoteForm";
 import Modal from "@/components/Modal";
 import TagSelectorModal from "@/components/dashboard/TagSelectorModal";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Note {
   id: string;
@@ -66,6 +67,13 @@ export default function DashboardPage() {
   const [showEditNoteTagSelector, setShowEditNoteTagSelector] = useState(false);
   const router = useRouter();
   const tagUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { username } = useAuth();
+
+  useEffect(() => {
+    if (username === "") {
+      router.replace("/login");
+    }
+  }, [username, router]);
 
   useEffect(() => {
     const fetchNotes = async () => {
