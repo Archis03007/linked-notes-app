@@ -4,6 +4,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --main-bg: #191919;
+  --left-panel-bg: #202123;
 }
 
 @theme inline {
@@ -17,6 +19,8 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --main-bg: #191919;
+    --left-panel-bg: #202123;
   }
 }
 

@@ -27,7 +27,7 @@ const NotesList: React.FC<NotesListProps> = ({ notes, selectedNoteId, onSelectNo
         {notes.map((note) => (
           <li
             key={note.id}
-            className={`group flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer ${selectedNoteId === note.id ? 'bg-gray-800 text-white' : 'bg-gray-900 text-gray-100 hover:bg-gray-800'} shadow-sm`}
+            className={`group flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer ${selectedNoteId === note.id ? 'bg-zync-800 text-purple-400' : 'bg-zync-900 text-gray-300 hover:bg-zync-800'}`}
           >
             <div className="flex-1 min-w-0" onClick={() => onSelectNote(note)}>
               <div className="font-bold text-base leading-tight truncate">{note.title || <span className="text-gray-400">Untitled</span>}</div>

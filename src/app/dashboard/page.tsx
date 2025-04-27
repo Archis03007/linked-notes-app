@@ -9,9 +9,11 @@ import CreateNoteButton from "@/components/dashboard/CreateNoteButton";
 import NotesList from "@/components/dashboard/NotesList";
 import NoteEditor from "@/components/dashboard/NoteEditor";
 import CreateNoteForm from "@/components/dashboard/CreateNoteForm";
-import Modal from "@/components/Modal";
+import SettingsPanel from "@/components/dashboard/SettingsPanel";
 import TagSelectorModal from "@/components/dashboard/TagSelectorModal";
 import { useAuth } from "@/components/AuthProvider";
+import colors from 'tailwindcss/colors';
+import { Check } from 'lucide-react';
 
 interface Note {
   id: string;
@@ -21,22 +23,15 @@ interface Note {
   created_at: string;
 }
 
-const TAILWIND_COLORS = [
-  "red-500", "orange-500", "yellow-500", "green-500", "teal-500", "blue-500", "indigo-500", "purple-500", "pink-500", "gray-500"
-];
-
-const COLOR_MAP: Record<string, string> = {
-  "red-500": "#ef4444",
-  "orange-500": "#f59e42",
-  "yellow-500": "#eab308",
-  "green-500": "#22c55e",
-  "teal-500": "#14b8a6",
-  "blue-500": "#3b82f6",
-  "indigo-500": "#6366f1",
-  "purple-500": "#a21caf",
-  "pink-500": "#ec4899",
-  "gray-500": "#6b7280"
-};
+const COLOR_VARIANTS = ['500'] as const;
+const COLOR_NAMES = Object.keys(colors).filter(key => typeof (colors as any)[key] === 'object') as string[];
+const TAILWIND_COLORS = COLOR_NAMES.flatMap(name => COLOR_VARIANTS.map(variant => `${name}-${variant}`));
+const COLOR_MAP: Record<string, string> = TAILWIND_COLORS.reduce((map, key) => {
+  const [name, variant] = key.split('-') as [string, string];
+  const hex = (colors as any)[name]?.[variant];
+  if (hex) map[key] = hex;
+  return map;
+}, {} as Record<string, string>);
 
 export default function DashboardPage() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -68,6 +63,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const tagUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
   const { username } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (username === "") {
@@ -158,6 +154,11 @@ export default function DashboardPage() {
     };
   }, [editNoteTagIds, selectedNote]);
 
+  // Helper to close sidebar on mobile
+  const autoCloseSidebarMobile = () => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
   // Handler for backlink clicks
   const handleBacklinkClick = (title: string) => {
     console.log('Backlink clicked:', title);
@@ -169,8 +170,7 @@ export default function DashboardPage() {
       // Select the note to display it in the editor
       setSelectedNote(foundNote);
       setCreating(false); // Ensure we are in edit mode
-      // Optional: If you want to change the URL without full page reload
-      // router.push(`/dashboard?note=${foundNote.id}`, { scroll: false });
+      autoCloseSidebarMobile();
     } else {
       console.log('Note not found for title:', title);
       // Optionally show a notification
@@ -183,6 +183,7 @@ export default function DashboardPage() {
     setSelectedNote(null);
     setNewNote({ title: "", subtitle: "", content: "" });
     setError(null);
+    autoCloseSidebarMobile();
   };
 
   const handleSaveNote = async () => {
@@ -314,7 +315,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar onOpenSettings={() => setSettingsOpen(true)}>
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
         <UserGreeting
           displayName={displayName}
           email={user?.email || ""}
@@ -328,136 +329,35 @@ export default function DashboardPage() {
             const fullNote = notes.find(n => n.id === note.id);
             if (fullNote) setSelectedNote(fullNote);
             setCreating(false);
+            autoCloseSidebarMobile();
           }}
           loading={loading}
           onDeleteNote={handleDeleteNote}
         />
       </Sidebar>
-      <Modal
+      <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        title="Settings"
-        leftPanel={
-          <div className="flex flex-col gap-2">
-            <button
-              className={`text-left px-3 py-2 rounded font-medium transition-colors ${settingsSection === 'personal' ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
-              onClick={() => setSettingsSection('personal')}
-            >
-              Personal
-            </button>
-            <button
-              className={`text-left px-3 py-2 rounded font-medium transition-colors ${settingsSection === 'tags' ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
-              onClick={() => setSettingsSection('tags')}
-            >
-              Manage Tags
-            </button>
-          </div>
-        }
-        rightPanel={
-          settingsSection === 'personal' ? (
-            <div className="flex flex-col gap-4 max-w-md">
-              <label className="text-sm font-medium">Change your name</label>
-              <input
-                className="border-b border-gray-400 bg-transparent px-2 py-1 text-lg focus:outline-none"
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                placeholder="Enter your name"
-                disabled={nameSaving}
-              />
-              <div className="flex gap-2 mt-2">
-                <button
-                  className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
-                  onClick={handleSaveName}
-                  disabled={nameSaving || !nameInput.trim()}
-                >
-                  {nameSaving ? "Saving..." : "Save"}
-                </button>
-                <button
-                  className="text-gray-500 px-4 py-2"
-                  onClick={() => { setNameInput(displayName); setSettingsOpen(false); }}
-                  disabled={nameSaving}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6 max-w-lg">
-              <h3 className="text-lg font-semibold mb-2">Manage Tags</h3>
-              <form
-                className="flex flex-col gap-2"
-                onSubmit={e => { e.preventDefault(); handleCreateOrUpdateTag(); }}
-              >
-                <input
-                  className="border-b border-gray-400 bg-transparent px-2 py-1 text-base focus:outline-none"
-                  value={tagName}
-                  onChange={e => setTagName(e.target.value)}
-                  placeholder="Tag name"
-                  required
-                  disabled={tagLoading}
-                />
-                <div className="flex gap-2 items-center">
-                  <span className="text-sm">Color:</span>
-                  <div className="flex gap-1">
-                    {TAILWIND_COLORS.map(color => (
-                      <button
-                        type="button"
-                        key={color}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${tagColor === color ? 'border-white' : 'border-gray-700'}`}
-                        style={{ backgroundColor: COLOR_MAP[color] }}
-                        onClick={() => setTagColor(color)}
-                        aria-label={color}
-                        disabled={tagLoading}
-                      >
-                        {tagColor === color && <span className="w-3 h-3 rounded-full border-2 border-white block" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="bg-violet-600 text-white rounded px-4 py-2 mt-2 hover:bg-violet-700 disabled:opacity-50 self-start"
-                  disabled={tagLoading || !tagName.trim()}
-                >
-                  {editingTagId ? 'Update Tag' : 'Add Tag'}
-                </button>
-                {editingTagId && (
-                  <button
-                    type="button"
-                    className="text-gray-400 text-xs mt-1 self-start"
-                    onClick={() => { setEditingTagId(null); setTagName(""); setTagColor(TAILWIND_COLORS[0]); }}
-                    disabled={tagLoading}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-              </form>
-              <ul className="flex flex-col gap-2">
-                {tags.map(tag => (
-                  <li key={tag.id} className="flex items-center gap-3 group">
-                    <span className="w-4 h-4 rounded-full border border-gray-700" style={{ backgroundColor: COLOR_MAP[tag.color] }} />
-                    <span className="flex-1 truncate">{tag.name}</span>
-                    <button
-                      className="text-blue-400 text-xs hover:underline mr-2"
-                      onClick={() => handleEditTag(tag)}
-                      disabled={tagLoading}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="text-red-400 text-xs hover:underline"
-                      onClick={() => handleDeleteTag(tag.id)}
-                      disabled={tagLoading}
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))}
-                {tags.length === 0 && <li className="text-gray-500 text-sm">No tags yet.</li>}
-              </ul>
-            </div>
-          )
-        }
+        settingsSection={settingsSection}
+        setSettingsSection={setSettingsSection}
+        nameInput={nameInput}
+        setNameInput={setNameInput}
+        nameSaving={nameSaving}
+        handleSaveName={handleSaveName}
+        displayName={displayName}
+        tags={tags}
+        tagName={tagName}
+        setTagName={setTagName}
+        tagColor={tagColor}
+        setTagColor={setTagColor}
+        tagLoading={tagLoading}
+        handleCreateOrUpdateTag={handleCreateOrUpdateTag}
+        editingTagId={editingTagId}
+        setEditingTagId={setEditingTagId}
+        handleEditTag={handleEditTag}
+        handleDeleteTag={handleDeleteTag}
+        TAILWIND_COLORS={TAILWIND_COLORS}
+        COLOR_MAP={COLOR_MAP}
       />
       <TagSelectorModal
         open={showNewNoteTagSelector}
@@ -475,7 +375,7 @@ export default function DashboardPage() {
         onChange={setEditNoteTagIds}
         colorMap={COLOR_MAP}
       />
-      <main className="flex-1 p-0 bg-black dark:bg-black overflow-y-auto">
+      <main className="flex-1 p-0" style={{ background: 'var(--main-bg)' }}>
         <div className="w-full flex flex-col gap-6 p-12">
           {creating ? (
             <CreateNoteForm

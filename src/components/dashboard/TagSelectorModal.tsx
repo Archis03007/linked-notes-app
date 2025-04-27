@@ -39,7 +39,7 @@ const TagSelectorModal: React.FC<TagSelectorModalProps> = ({ open, onClose, tags
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-50" style={{ background: 'var(--main-bg)' }}>
       <div className="bg-gray-900 text-gray-100 rounded-lg shadow-lg p-6 w-full max-w-md relative flex flex-col gap-4">
         <button
           className="absolute top-3 right-3 text-gray-400 hover:text-white"
