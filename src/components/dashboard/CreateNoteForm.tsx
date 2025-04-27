@@ -40,7 +40,7 @@ const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSa
         onLinkClick: onLinkClick,
       }),
       Placeholder.configure({
-        placeholder: 'Write your note here...'
+        placeholder: 'Write your note here...   type [[...]] for backlinks.'
       }),
     ],
     content: newNote.content || '',

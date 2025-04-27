@@ -91,7 +91,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onChange, onUpdate, updat
         onLinkClick: onLinkClick,
       }),
       Placeholder.configure({
-        placeholder: 'Write your note here...'
+        placeholder: 'Write your note here...   type [[...]] for backlinks.'
       })
     ],
     content: note.content,
