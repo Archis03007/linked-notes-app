@@ -159,12 +159,12 @@ export default function SettingsPage() {
         `}
       >
         {/* Close button for mobile */}
-        <div className="flex items-center justify-between mb-6 md:hidden">
+        <div className="flex items-center justify-between mb-6">
           <span className="text-xl font-bold">Settings</span>
           <button
-            className="text-gray-400 hover:text-white"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
+            className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-zinc-800 transition-colors"
+            onClick={() => router.back()}
+            aria-label="Close settings"
           >
             &times;
           </button>

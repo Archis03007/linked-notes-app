@@ -63,6 +63,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     title="Settings"
     leftPanel={
       <div className="flex flex-col gap-2 h-full w-64 pt-8 px-6 bg-zinc-900 border-r border-zinc-800">
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-xl font-bold">Settings</span>
+          <button
+            className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-zinc-800 transition-colors"
+            onClick={onClose}
+            aria-label="Close settings"
+          >
+            &times;
+          </button>
+        </div>
         <button
           className={`w-full text-left px-3 py-2 rounded font-medium transition-colors ${settingsSection === 'personal' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'}`}
           onClick={() => setSettingsSection('personal')}
@@ -108,7 +118,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-8 w-full max-w-2xl mx-auto">
-            <h3 className="text-lg font-semibold mb-2 text-zinc-100">Manage Tags</h3>
+            <h3 className="text-lg font-semibold mb-2 text-zinc-100">Manage Tagsz</h3>
             <form
               className="flex flex-col gap-4"
               onSubmit={e => { e.preventDefault(); handleCreateOrUpdateTag(); }}
@@ -161,7 +171,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <ul className="flex flex-col gap-2">
               {tags.map(tag => (
                 <li key={tag.id} className="flex items-center gap-3 group">
-                  <span className="w-4 h-4 rounded-full border border-zinc-700" style={{ backgroundColor: COLOR_MAP[tag.color] }} />
+                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: COLOR_MAP[tag.color] }} />
                   <span className="flex-1 truncate text-zinc-100">{tag.name}</span>
                   <button
                     className="text-blue-400 text-xs hover:underline mr-2"

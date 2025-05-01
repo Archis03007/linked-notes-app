@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Plus, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export type NoteType = 'text' | 'task' | 'checklist';
 
@@ -28,31 +29,43 @@ const CreateNoteButton: React.FC<CreateNoteButtonProps> = ({ onClick, disabled }
           <Plus className="w-5 h-5" />
           New Note
         </button>
-        <button
-          className="flex items-center justify-center bg-violet-600 text-white font-bold rounded-r-lg px-2 py-2 hover:bg-violet-700 transition shadow-md h-10 border-l border-violet-500"
-          onClick={() => setShowDropdown(!showDropdown)}
-          disabled={disabled}
+        <div
+          onMouseEnter={() => !disabled && setShowDropdown(true)}
+          onMouseLeave={() => setShowDropdown(false)}
         >
-          <ChevronDown className="w-5 h-5" />
-        </button>
-      </div>
-      
-      {showDropdown && (
-        <div className="absolute z-50 w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          {noteTypes.map(({ type, label }) => (
-            <button
-              key={type}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 first:rounded-t-lg last:rounded-b-lg"
-              onClick={() => {
-                onClick(type);
-                setShowDropdown(false);
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            className="flex items-center justify-center bg-violet-600 text-white font-bold rounded-r-lg px-2 py-2 hover:bg-violet-700 transition shadow-md h-10 border-l border-violet-500"
+            onClick={() => setShowDropdown(!showDropdown)}
+            disabled={disabled}
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
+          <AnimatePresence>
+            {showDropdown && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="absolute z-50 right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 mt-2"
+              >
+                {noteTypes.map(({ type, label }) => (
+                  <button
+                    key={type}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 first:rounded-t-lg last:rounded-b-lg"
+                    onClick={() => {
+                      onClick(type);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
     </div>
   );
 };
