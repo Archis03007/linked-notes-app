@@ -53,14 +53,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-80 max-w-full">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8 w-[384px] max-w-full">
       <input
         type="email"
         placeholder="Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
         required
-        className="border rounded px-3 py-2"
+        className="border rounded px-4 py-2"
       />
       <input
         type="password"
@@ -68,24 +68,24 @@ export default function AuthForm({ mode }: AuthFormProps) {
         value={password}
         onChange={e => setPassword(e.target.value)}
         required
-        className="border rounded px-3 py-2"
+        className="border rounded px-4 py-2"
       />
       <button
         type="submit"
         disabled={loading}
-        className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+        className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center h-12"
       >
         {loading ? (
           <>
-            <Loader className="w-5 h-5 mr-2 animate-spin" />
+            <Loader className="w-6 h-6 mr-2 animate-spin" />
             {mode === "login" ? "Logging in..." : "Registering..."}
           </>
         ) : (
           mode === "login" ? "Login" : "Register"
         )}
       </button>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-      {mode === "register" && success && <div className="text-green-600 text-sm">{success}</div>}
+      {error && <div className="text-red-600 text-sm mt-4">{error}</div>}
+      {mode === "register" && success && <div className="text-green-600 text-sm mt-4">{success}</div>}
     </form>
   );
 } 
