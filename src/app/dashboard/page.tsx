@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/utils/supabaseClient";
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -9,11 +9,12 @@ import CreateNoteButton from "@/components/dashboard/CreateNoteButton";
 import NotesList from "@/components/dashboard/NotesList";
 import NoteEditor, { EditableNote } from "@/components/dashboard/NoteEditor";
 import CreateNoteForm from "@/components/dashboard/CreateNoteForm";
-import SettingsPanel from "@/components/dashboard/SettingsPanel";
 import TagSelectorModal from "@/components/dashboard/TagSelectorModal";
 import { useAuth } from "@/components/AuthProvider";
 import colors from 'tailwindcss/colors';
 import { Check, Plus, Trash2 } from 'lucide-react';
+import { saveNotesToCache, getNotesFromCache } from "@/utils/cacheUtils";
+import { debounce } from "@/utils/debounce";
 
 interface NewNote {
   title: string;
@@ -62,19 +63,10 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [displayName, setDisplayName] = useState<string>("");
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState("");
-  const [nameSaving, setNameSaving] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<'personal' | 'tags'>('personal');
   const [tags, setTags] = useState<any[]>([]);
-  const [tagName, setTagName] = useState("");
-  const [tagColor, setTagColor] = useState(TAILWIND_COLORS[0]);
-  const [editingTagId, setEditingTagId] = useState<string | null>(null);
-  const [tagLoading, setTagLoading] = useState(false);
   const [newNoteTagIds, setNewNoteTagIds] = useState<string[]>([]);
   const [editNoteTagIds, setEditNoteTagIds] = useState<string[]>([]);
   const [showNewNoteTagSelector, setShowNewNoteTagSelector] = useState(false);
@@ -100,12 +92,26 @@ export default function DashboardPage() {
         setLoading(false);
         return;
       }
+
+      // Try to get notes from cache first
+      const { notes: cachedNotes } = getNotesFromCache();
+      if (cachedNotes) {
+        setNotes(cachedNotes);
+        setLoading(false);
+      }
+
+      // Fetch fresh notes from the database with optimized query
       const { data, error } = await supabase
         .from("notes")
         .select("id, title, subtitle, content, created_at, type")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (!error && data) setNotes(data);
+        .order("created_at", { ascending: false })
+        .limit(50); // Limit initial load to 50 notes
+
+      if (!error && data) {
+        setNotes(data);
+        saveNotesToCache(data);
+      }
       setLoading(false);
     };
     fetchNotes();
@@ -124,10 +130,8 @@ export default function DashboardPage() {
           .single();
         if (profile && profile.name) {
           setDisplayName(profile.name);
-          setNameInput(profile.name);
         } else {
           setDisplayName(data.user.user_metadata?.name || "");
-          setNameInput(data.user.user_metadata?.name || "");
         }
       }
     };
@@ -141,7 +145,7 @@ export default function DashboardPage() {
       setTags(data || []);
     };
     fetchTags();
-  }, [user, settingsOpen]);
+  }, [user]);
 
   useEffect(() => {
     const fetchNoteTags = async () => {
@@ -201,27 +205,23 @@ export default function DashboardPage() {
     setCreating(true);
     setSelectedNote(null);
     let initialContent = "";
-    let initialTitle = "";
     
     // Set initial content based on note type
     switch (type) {
       case 'task':
-        initialTitle = "New Task";
         initialContent = '<p><input type="checkbox" /> Task description</p>'; // Wrap in <p> for Tiptap
         break;
       case 'checklist':
-        initialTitle = "New Checklist";
         // Initialize with one empty item as JSON string
         const initialItems: ChecklistItem[] = [{ id: crypto.randomUUID(), text: "", checked: false }];
         initialContent = JSON.stringify(initialItems);
         break;
       default: // 'text'
-        initialTitle = "New Note";
         initialContent = "";
     }
     
     setNewNote({ 
-      title: initialTitle, 
+      title: "", 
       subtitle: "", 
       content: initialContent,
       type: type 
@@ -263,52 +263,59 @@ export default function DashboardPage() {
         newNoteTagIds.map(tag_id => ({ note_id: data.id, tag_id }))
       );
     }
-    setNotes([data, ...notes]);
+    const updatedNotes = [data, ...notes];
+    setNotes(updatedNotes);
+    saveNotesToCache(updatedNotes);
     setNewNote({ title: "", subtitle: "", content: "", type: 'text' });
     setNewNoteTagIds([]);
     setSaving(false);
   };
 
-  const handleSaveName = async () => {
-    if (!user) return;
-    setNameSaving(true);
-    await supabase.auth.updateUser({ data: { name: nameInput } });
-    await supabase.from("profiles").upsert({
-      id: user.id,
-      name: nameInput,
-      email: user.email,
-      updated_at: new Date().toISOString(),
-    });
-    setDisplayName(nameInput);
-    setEditingName(false);
-    setNameSaving(false);
-  };
+  // Memoize the filtered notes to prevent unnecessary recalculations
+  const filteredNotes = useMemo(() => 
+    notes.filter(note =>
+      note.title.toLowerCase().includes(search.toLowerCase()) ||
+      note.subtitle.toLowerCase().includes(search.toLowerCase())
+    ),
+    [notes, search]
+  );
+
+  // Debounce the update function to reduce database calls
+  const debouncedUpdateNote = useCallback(
+    debounce(async (note: Note) => {
+      setUpdating(true);
+      setUpdateError(null);
+      
+      const contentToSave = typeof note.content === 'string' 
+        ? note.content 
+        : JSON.stringify(note.content);
+
+      const { error } = await supabase
+        .from("notes")
+        .update({
+          title: note.title,
+          subtitle: note.subtitle,
+          content: contentToSave,
+        })
+        .eq("id", note.id);
+
+      if (error) {
+        setUpdateError(error.message);
+      } else {
+        const updatedNotes = notes.map(n => 
+          n.id === note.id ? { ...note, content: contentToSave } : n
+        );
+        setNotes(updatedNotes);
+        saveNotesToCache(updatedNotes);
+      }
+      setUpdating(false);
+    }, 1000),
+    [notes]
+  );
 
   const handleUpdateNote = async () => {
     if (!selectedNote) return;
-    setUpdating(true);
-    setUpdateError(null);
-    // Ensure content is stringified if it's an array (for checklist updates)
-    const contentToSave = typeof selectedNote.content === 'string' 
-      ? selectedNote.content 
-      : JSON.stringify(selectedNote.content);
-
-    const { error } = await supabase
-      .from("notes")
-      .update({
-        title: selectedNote.title,
-        subtitle: selectedNote.subtitle,
-        content: contentToSave, // Use potentially stringified content
-        // We don't update 'type' here, maybe add later if needed
-      })
-      .eq("id", selectedNote.id);
-    if (error) {
-      setUpdateError(error.message);
-    } else {
-      // Update local state correctly, ensuring content is handled
-      setNotes(notes.map(n => n.id === selectedNote.id ? { ...selectedNote, content: contentToSave } : n));
-    }
-    setUpdating(false);
+    debouncedUpdateNote(selectedNote);
   };
 
   const handleDeleteNote = async (id: string) => {
@@ -317,7 +324,9 @@ export default function DashboardPage() {
       .delete()
       .eq("id", id);
     if (!error) {
-      setNotes(notes.filter(n => n.id !== id));
+      const updatedNotes = notes.filter(n => n.id !== id);
+      setNotes(updatedNotes);
+      saveNotesToCache(updatedNotes);
       if (selectedNote && selectedNote.id === id) {
         setSelectedNote(null);
       }
@@ -326,44 +335,50 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateOrUpdateTag = async () => {
-    setTagLoading(true);
-    if (editingTagId) {
-      // Update tag
-      await supabase.from("tags").update({ name: tagName, color: tagColor }).eq("id", editingTagId);
-    } else {
-      // Create tag
-      await supabase.from("tags").insert({ name: tagName, color: tagColor, user_id: user.id });
-    }
-    setTagName("");
-    setTagColor(TAILWIND_COLORS[0]);
-    setEditingTagId(null);
-    // Refresh tags
-    const { data } = await supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at", { ascending: true });
-    setTags(data || []);
-    setTagLoading(false);
-  };
+  // Memoize the selected note to prevent unnecessary re-renders
+  const selectedNoteComponent = useMemo(() => {
+    if (!selectedNote) return null;
+    return (
+      <NoteEditor
+        note={selectedNote}
+        onChange={(updatedPartialNote: Partial<EditableNote>) => { 
+          setSelectedNote(prevNote => {
+            if (!prevNote) return null;
 
-  const handleEditTag = (tag: any) => {
-    setTagName(tag.name);
-    setTagColor(tag.color);
-    setEditingTagId(tag.id);
-  };
+            let contentToSet = updatedPartialNote.content;
+            if (prevNote.type === 'checklist' && contentToSet && typeof contentToSet !== 'string') {
+              try {
+                contentToSet = JSON.stringify(contentToSet);
+              } catch (e) {
+                console.error("Error stringifying checklist content during onChange:", e);
+                contentToSet = prevNote.content;
+              }
+            }
 
-  const handleDeleteTag = async (id: string) => {
-    if (!window.confirm("Delete this tag?")) return;
-    setTagLoading(true);
-    await supabase.from("tags").delete().eq("id", id);
-    const { data } = await supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at", { ascending: true });
-    setTags(data || []);
-    setTagLoading(false);
-  };
+            const finalContent = typeof contentToSet === 'string' ? contentToSet : undefined;
 
-  // Filter notes by search
-  const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(search.toLowerCase()) ||
-    note.subtitle.toLowerCase().includes(search.toLowerCase())
-  );
+            const changes = {
+              ...(updatedPartialNote.title !== undefined && { title: updatedPartialNote.title }),
+              ...(updatedPartialNote.subtitle !== undefined && { subtitle: updatedPartialNote.subtitle }),
+              ...(finalContent !== undefined && { content: finalContent }),
+            };
+
+            return { ...prevNote, ...changes } as Note;
+          });
+        }}
+        onUpdate={handleUpdateNote}
+        updating={updating}
+        updateError={updateError}
+        tags={tags}
+        selectedTagIds={editNoteTagIds}
+        onTagsChange={setEditNoteTagIds}
+        colorMap={COLOR_MAP}
+        onOpenTagSelector={() => setShowEditNoteTagSelector(true)}
+        notes={notes}
+        onLinkClick={handleBacklinkClick}
+      />
+    );
+  }, [selectedNote, updating, updateError, tags, editNoteTagIds, notes]);
 
   return (
     <div className="flex min-h-screen">
@@ -387,30 +402,6 @@ export default function DashboardPage() {
           onDeleteNote={handleDeleteNote}
         />
       </Sidebar>
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settingsSection={settingsSection}
-        setSettingsSection={setSettingsSection}
-        nameInput={nameInput}
-        setNameInput={setNameInput}
-        nameSaving={nameSaving}
-        handleSaveName={handleSaveName}
-        displayName={displayName}
-        tags={tags}
-        tagName={tagName}
-        setTagName={setTagName}
-        tagColor={tagColor}
-        setTagColor={setTagColor}
-        tagLoading={tagLoading}
-        handleCreateOrUpdateTag={handleCreateOrUpdateTag}
-        editingTagId={editingTagId}
-        setEditingTagId={setEditingTagId}
-        handleEditTag={handleEditTag}
-        handleDeleteTag={handleDeleteTag}
-        TAILWIND_COLORS={TAILWIND_COLORS}
-        COLOR_MAP={COLOR_MAP}
-      />
       <TagSelectorModal
         open={showNewNoteTagSelector}
         onClose={() => setShowNewNoteTagSelector(false)}
@@ -443,47 +434,10 @@ export default function DashboardPage() {
               onOpenTagSelector={() => setShowNewNoteTagSelector(true)}
               onLinkClick={handleBacklinkClick}
             />
-          ) : selectedNote ? (
-            <NoteEditor
-              note={selectedNote}
-              onChange={(updatedPartialNote: Partial<EditableNote>) => { 
-                setSelectedNote(prevNote => {
-                  if (!prevNote) return null;
-
-                  let contentToSet = updatedPartialNote.content;
-                  if (prevNote.type === 'checklist' && contentToSet && typeof contentToSet !== 'string') {
-                    try {
-                      contentToSet = JSON.stringify(contentToSet);
-                    } catch (e) {
-                      console.error("Error stringifying checklist content during onChange:", e);
-                      contentToSet = prevNote.content;
-                    }
-                  }
-
-                  const finalContent = typeof contentToSet === 'string' ? contentToSet : undefined;
-
-                  const changes = {
-                    ...(updatedPartialNote.title !== undefined && { title: updatedPartialNote.title }),
-                    ...(updatedPartialNote.subtitle !== undefined && { subtitle: updatedPartialNote.subtitle }),
-                    ...(finalContent !== undefined && { content: finalContent }),
-                  };
-
-                  return { ...prevNote, ...changes } as Note;
-                });
-              }}
-              onUpdate={handleUpdateNote}
-              updating={updating}
-              updateError={updateError}
-              tags={tags}
-              selectedTagIds={editNoteTagIds}
-              onTagsChange={setEditNoteTagIds}
-              colorMap={COLOR_MAP}
-              onOpenTagSelector={() => setShowEditNoteTagSelector(true)}
-              notes={notes}
-              onLinkClick={handleBacklinkClick}
-            />
-          ) : (
-            <div className="text-gray-600 dark:text-gray-300 text-xl m-auto">Select a note to view or edit.</div>
+          ) : selectedNoteComponent || (
+            <div className="text-gray-600 dark:text-gray-300 text-xl m-auto">
+              Select a note to view or edit.
+            </div>
           )}
         </div>
       </main>
