@@ -75,10 +75,9 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
             </button>
           </div>
         </div>
-        {/* Desktop header with greeting and settings/logout */}
-        <div className="hidden md:flex md:justify-between md:items-center md:w-full md:mb-4">
-          <div className="flex-1">{userGreeting}</div>
-          <div className="flex space-x-3">
+        {/* Desktop header with icons and greeting */}
+        <div className="hidden md:flex md:flex-col md:w-full md:mb-4 gap-4">
+          <div className="flex justify-between items-center">
             <button
               className="text-gray-400 hover:text-white transition-colors"
               aria-label="Settings"
@@ -94,6 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
               <LogOut className="w-6 h-6" />
             </button>
           </div>
+          <div className="flex-1">{userGreeting}</div>
         </div>
         <div className="flex-1 flex flex-col gap-5">
           {/* Remove this since we're now showing UserGreeting in the header */}

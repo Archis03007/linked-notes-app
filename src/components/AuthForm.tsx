@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
+import { Loader } from "lucide-react";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -24,8 +25,10 @@ export default function AuthForm({ mode }: AuthFormProps) {
     setSuccess(null);
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-      else {
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      } else {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profile } = await supabase
@@ -39,8 +42,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
             setUsername(user.user_metadata?.name || user.email || "");
           }
         }
-        setSuccess("Logged in! Redirecting...");
-        setTimeout(() => router.push("/dashboard"), 1000);
+        router.push("/dashboard");
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
@@ -71,12 +73,19 @@ export default function AuthForm({ mode }: AuthFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
+        className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
       >
-        {loading ? (mode === "login" ? "Logging in..." : "Registering...") : (mode === "login" ? "Login" : "Register")}
+        {loading ? (
+          <>
+            <Loader className="w-5 h-5 mr-2 animate-spin" />
+            {mode === "login" ? "Logging in..." : "Registering..."}
+          </>
+        ) : (
+          mode === "login" ? "Login" : "Register"
+        )}
       </button>
       {error && <div className="text-red-600 text-sm">{error}</div>}
-      {success && <div className="text-green-600 text-sm">{success}</div>}
+      {mode === "register" && success && <div className="text-green-600 text-sm">{success}</div>}
     </form>
   );
 } 
