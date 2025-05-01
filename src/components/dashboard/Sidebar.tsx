@@ -75,26 +75,28 @@ const Sidebar: React.FC<SidebarProps> = ({ children, sidebarOpen, setSidebarOpen
             </button>
           </div>
         </div>
-        {/* Desktop settings/logout top right */}
-        <div className="hidden md:flex space-x-3 mb-4 md:absolute md:top-5 md:right-5 md:mb-0">
-          <button
-            className="text-gray-400 hover:text-white transition-colors"
-            aria-label="Settings"
-            onClick={() => { closeSidebar(); router.push('/dashboard/settings'); }}
-          >
-            <Settings className="w-6 h-6" />
-          </button>
-          <button
-            className="text-gray-400 hover:text-white transition-colors"
-            aria-label="Logout"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-6 h-6" />
-          </button>
+        {/* Desktop header with greeting and settings/logout */}
+        <div className="hidden md:flex md:justify-between md:items-center md:w-full md:mb-4">
+          <div className="flex-1">{userGreeting}</div>
+          <div className="flex space-x-3">
+            <button
+              className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Settings"
+              onClick={() => { closeSidebar(); router.push('/dashboard/settings'); }}
+            >
+              <Settings className="w-6 h-6" />
+            </button>
+            <button
+              className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Logout"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-6 h-6" />
+            </button>
+          </div>
         </div>
         <div className="flex-1 flex flex-col gap-5">
-          {/* Only show UserGreeting below top bar on desktop */}
-          <div className="hidden md:block">{userGreeting}</div>
+          {/* Remove this since we're now showing UserGreeting in the header */}
           {restChildren}
         </div>
       </aside>
