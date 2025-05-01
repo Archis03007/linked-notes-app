@@ -118,7 +118,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-8 w-full max-w-2xl mx-auto">
-            <h3 className="text-lg font-semibold mb-2 text-zinc-100">Manage Tagsz</h3>
+            <h3 className="text-lg font-semibold mb-2 text-zinc-100">Manage Tags</h3>
             <form
               className="flex flex-col gap-4"
               onSubmit={e => { e.preventDefault(); handleCreateOrUpdateTag(); }}

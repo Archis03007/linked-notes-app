@@ -243,7 +243,7 @@ export default function SettingsPage() {
             <ul className="flex flex-col gap-2">
               {tags.map(t=>(
                 <li key={t.id} className="flex items-center gap-3">
-                  <span className="w-4 h-4 rounded-full border border-zinc-700" style={{backgroundColor:COLOR_MAP[t.color]}} />
+                  <span className="w-4 h-4 rounded-full" style={{backgroundColor:COLOR_MAP[t.color]}} />
                   <span className="flex-1 truncate">{t.name}</span>
                   <button className="text-blue-400 text-xs hover:underline" onClick={()=>startEdit(t)}>Edit</button>
                   <button className="text-red-400 text-xs hover:underline ml-2" onClick={()=>deleteTag(t.id)}>Delete</button>
