@@ -19,15 +19,15 @@ interface NotesListProps {
 const NotesList: React.FC<NotesListProps> = ({ notes, selectedNoteId, onSelectNote, loading, onDeleteNote }) => (
   <div className="flex-1 overflow-y-auto mt-4 hide-scrollbar border-t border-gray-800 pt-4">
     {loading ? (
-      <div className="text-gray-500 text-sm">Loading notes...</div>
+      <div className="text-gray-500 text-sm px-4">Loading notes...</div>
     ) : notes.length === 0 ? (
-      <div className="text-gray-500 text-sm">No notes yet.</div>
+      <div className="text-gray-500 text-sm px-4">No notes yet.</div>
     ) : (
       <ul className="space-y-2">
         {notes.map((note) => (
           <li
             key={note.id}
-            className={`group flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer ${selectedNoteId === note.id ? 'bg-zync-800 text-purple-400 hover:text-purple-500' : 'bg-zync-900 text-gray-300 hover:bg-zync-800'}`}
+            className={`group flex items-center justify-between px-4 py-2 rounded-lg transition-colors cursor-pointer ${selectedNoteId === note.id ? 'bg-zync-800 text-purple-400 hover:text-purple-500' : 'bg-zync-900 text-gray-300 hover:bg-zync-800'}`}
           >
             <div className="flex-1 min-w-0" onClick={() => onSelectNote(note)}>
               <div className="font-bold text-base leading-tight truncate">{note.title || <span className="text-gray-400">Untitled</span>}</div>
@@ -48,7 +48,7 @@ const NotesList: React.FC<NotesListProps> = ({ notes, selectedNoteId, onSelectNo
               </div>
             </div>
             <button
-              className="ml-3 p-1 rounded hover:bg-red-100/10 dark:hover:bg-red-900/40 transition"
+              className="ml-2 p-2 rounded hover:bg-red-100/10 dark:hover:bg-red-900/40 transition"
               title="Delete note"
               onClick={e => {
                 e.stopPropagation();
@@ -57,7 +57,7 @@ const NotesList: React.FC<NotesListProps> = ({ notes, selectedNoteId, onSelectNo
                 }
               }}
             >
-              <Trash2 className="w-5 h-5 text-red-400 group-hover:text-red-500 transition" />
+              <Trash2 className="w-4 h-4 text-red-400 group-hover:text-red-500 transition" />
             </button>
           </li>
         ))}

@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { BacklinkMark } from './NoteEditor';
 import Placeholder from '@tiptap/extension-placeholder';
+import ChecklistEditor, { ChecklistItem } from './ChecklistEditor';
 
 interface Note {
   title: string;
   subtitle: string;
   content: string;
+  type: 'text' | 'task' | 'checklist';
 }
 
 interface Tag {
@@ -40,22 +42,44 @@ const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSa
         onLinkClick: onLinkClick,
       }),
       Placeholder.configure({
-        placeholder: 'Write your note here...   type [[...]] for backlinks.'
+        placeholder: newNote.type === 'text' 
+          ? 'Write your note here...   type [[...]] for backlinks.'
+          : newNote.type === 'task'
+          ? 'Describe your task here...'
+          : '',
       }),
     ],
     content: newNote.content || '',
     onUpdate({ editor }) {
-      onChange({ ...newNote, content: editor.getHTML() });
+      if (newNote.type !== 'checklist') {
+        onChange({ ...newNote, content: editor.getHTML() });
+      }
     },
-    autofocus: true,
+    autofocus: newNote.type !== 'checklist',
+    editable: newNote.type !== 'checklist',
   });
 
   useEffect(() => {
-    if (editor && newNote.content !== editor.getHTML()) {
+    if (editor && newNote.type !== 'checklist' && newNote.content !== editor.getHTML()) {
       editor.commands.setContent(newNote.content || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newNote.content]);
+  }, [newNote.content, newNote.type, editor]);
+
+  const checklistItems = useMemo(() => {
+    if (newNote.type !== 'checklist') return [];
+    try {
+      const parsed = JSON.parse(newNote.content);
+      return Array.isArray(parsed) ? parsed : []; 
+    } catch (e) {
+      console.error("Failed to parse checklist content:", e);
+      return [];
+    }
+  }, [newNote.content, newNote.type]);
+
+  const handleChecklistChange = (updatedItems: ChecklistItem[]) => {
+    onChange({ ...newNote, content: JSON.stringify(updatedItems) });
+  };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange({ ...newNote, content: e.target.value });
@@ -75,13 +99,26 @@ const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSa
         className="text-3xl font-bold bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-blue-500 mb-2 px-0"
         value={newNote.title}
         onChange={e => onChange({ ...newNote, title: e.target.value })}
-        placeholder="Enter note title..."
+        placeholder={
+          newNote.type === 'text' 
+            ? "Enter note title..." 
+            : newNote.type === 'task'
+            ? "Enter task title..."
+            : "Enter checklist title..."
+        }
+        autoFocus={newNote.type === 'checklist'}
       />
       <input
         className="text-xl bg-transparent border-0 border-b border-gray-200 dark:border-gray-700 focus:outline-none focus:border-blue-400 mb-2 px-0"
         value={newNote.subtitle}
         onChange={e => onChange({ ...newNote, subtitle: e.target.value })}
-        placeholder="Enter subtitle..."
+        placeholder={
+          newNote.type === 'text'
+            ? "Enter subtitle..."
+            : newNote.type === 'task'
+            ? "Enter task description..."
+            : "Enter checklist description..."
+        }
       />
       <div className="flex items-center justify-between mb-2">
         <div className="flex flex-wrap gap-2">
@@ -115,10 +152,14 @@ const CreateNoteForm: React.FC<CreateNoteFormProps> = ({ newNote, onChange, onSa
           + Add Tags
         </button>
       </div>
-      <EditorContent
-        editor={editor}
-        className="ProseMirror bg-transparent border-0 rounded p-0 focus:outline-none text-base min-h-[40px]"
-      />
+      {newNote.type === 'checklist' ? (
+        <ChecklistEditor items={checklistItems} onChange={handleChecklistChange} />
+      ) : (
+        <EditorContent
+          editor={editor}
+          className="ProseMirror bg-transparent border-0 rounded p-0 focus:outline-none text-base min-h-[40px]"
+        />
+      )}
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <button
         className="mt-4 bg-violet-600 text-white font-semibold rounded-lg px-6 py-2 hover:bg-violet-700 transition shadow-lg self-end"

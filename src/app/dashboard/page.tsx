@@ -7,13 +7,20 @@ import UserGreeting from "@/components/dashboard/UserGreeting";
 import SearchBar from "@/components/dashboard/SearchBar";
 import CreateNoteButton from "@/components/dashboard/CreateNoteButton";
 import NotesList from "@/components/dashboard/NotesList";
-import NoteEditor from "@/components/dashboard/NoteEditor";
+import NoteEditor, { EditableNote } from "@/components/dashboard/NoteEditor";
 import CreateNoteForm from "@/components/dashboard/CreateNoteForm";
 import SettingsPanel from "@/components/dashboard/SettingsPanel";
 import TagSelectorModal from "@/components/dashboard/TagSelectorModal";
 import { useAuth } from "@/components/AuthProvider";
 import colors from 'tailwindcss/colors';
-import { Check } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
+
+interface NewNote {
+  title: string;
+  subtitle: string;
+  content: string;
+  type: 'text' | 'task' | 'checklist';
+}
 
 interface Note {
   id: string;
@@ -21,6 +28,13 @@ interface Note {
   subtitle: string;
   content: string;
   created_at: string;
+  type: 'text' | 'task' | 'checklist';
+}
+
+interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
 }
 
 const COLOR_VARIANTS = ['500'] as const;
@@ -38,7 +52,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [creating, setCreating] = useState(false);
-  const [newNote, setNewNote] = useState({ title: "", subtitle: "", content: "" });
+  const [newNote, setNewNote] = useState<NewNote>({ 
+    title: "", 
+    subtitle: "", 
+    content: "",
+    type: 'text'
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -83,7 +102,7 @@ export default function DashboardPage() {
       }
       const { data, error } = await supabase
         .from("notes")
-        .select("id, title, subtitle, content, created_at")
+        .select("id, title, subtitle, content, created_at, type")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (!error && data) setNotes(data);
@@ -178,10 +197,35 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateNote = () => {
+  const handleCreateNote = (type: 'text' | 'task' | 'checklist') => {
     setCreating(true);
     setSelectedNote(null);
-    setNewNote({ title: "", subtitle: "", content: "" });
+    let initialContent = "";
+    let initialTitle = "";
+    
+    // Set initial content based on note type
+    switch (type) {
+      case 'task':
+        initialTitle = "New Task";
+        initialContent = '<p><input type="checkbox" /> Task description</p>'; // Wrap in <p> for Tiptap
+        break;
+      case 'checklist':
+        initialTitle = "New Checklist";
+        // Initialize with one empty item as JSON string
+        const initialItems: ChecklistItem[] = [{ id: crypto.randomUUID(), text: "", checked: false }];
+        initialContent = JSON.stringify(initialItems);
+        break;
+      default: // 'text'
+        initialTitle = "New Note";
+        initialContent = "";
+    }
+    
+    setNewNote({ 
+      title: initialTitle, 
+      subtitle: "", 
+      content: initialContent,
+      type: type 
+    });
     setError(null);
     autoCloseSidebarMobile();
   };
@@ -204,6 +248,7 @@ export default function DashboardPage() {
         title: newNote.title,
         subtitle: newNote.subtitle,
         content: newNote.content,
+        type: newNote.type || 'text',
       })
       .select()
       .single();
@@ -219,7 +264,7 @@ export default function DashboardPage() {
       );
     }
     setNotes([data, ...notes]);
-    setNewNote({ title: "", subtitle: "", content: "" });
+    setNewNote({ title: "", subtitle: "", content: "", type: 'text' });
     setNewNoteTagIds([]);
     setSaving(false);
   };
@@ -243,18 +288,25 @@ export default function DashboardPage() {
     if (!selectedNote) return;
     setUpdating(true);
     setUpdateError(null);
+    // Ensure content is stringified if it's an array (for checklist updates)
+    const contentToSave = typeof selectedNote.content === 'string' 
+      ? selectedNote.content 
+      : JSON.stringify(selectedNote.content);
+
     const { error } = await supabase
       .from("notes")
       .update({
         title: selectedNote.title,
         subtitle: selectedNote.subtitle,
-        content: selectedNote.content,
+        content: contentToSave, // Use potentially stringified content
+        // We don't update 'type' here, maybe add later if needed
       })
       .eq("id", selectedNote.id);
     if (error) {
       setUpdateError(error.message);
     } else {
-      setNotes(notes.map(n => n.id === selectedNote.id ? { ...selectedNote } : n));
+      // Update local state correctly, ensuring content is handled
+      setNotes(notes.map(n => n.id === selectedNote.id ? { ...selectedNote, content: contentToSave } : n));
     }
     setUpdating(false);
   };
@@ -380,7 +432,7 @@ export default function DashboardPage() {
           {creating ? (
             <CreateNoteForm
               newNote={newNote}
-              onChange={setNewNote}
+              onChange={(note: NewNote) => setNewNote(note)}
               onSave={handleSaveNote}
               saving={saving}
               error={error}
@@ -394,17 +446,29 @@ export default function DashboardPage() {
           ) : selectedNote ? (
             <NoteEditor
               note={selectedNote}
-              onChange={(updatedPartialNote) => {
-                // Directly merge the changes into the selectedNote state
+              onChange={(updatedPartialNote: Partial<EditableNote>) => { 
                 setSelectedNote(prevNote => {
-                  if (!prevNote) return null; // Should not happen if selectedNote exists
-                  // Ensure we only update fields present in updatedPartialNote
+                  if (!prevNote) return null;
+
+                  let contentToSet = updatedPartialNote.content;
+                  if (prevNote.type === 'checklist' && contentToSet && typeof contentToSet !== 'string') {
+                    try {
+                      contentToSet = JSON.stringify(contentToSet);
+                    } catch (e) {
+                      console.error("Error stringifying checklist content during onChange:", e);
+                      contentToSet = prevNote.content;
+                    }
+                  }
+
+                  const finalContent = typeof contentToSet === 'string' ? contentToSet : undefined;
+
                   const changes = {
-                      ...(updatedPartialNote.title !== undefined && { title: updatedPartialNote.title }),
-                      ...(updatedPartialNote.subtitle !== undefined && { subtitle: updatedPartialNote.subtitle }),
-                      ...(updatedPartialNote.content !== undefined && { content: updatedPartialNote.content }),
+                    ...(updatedPartialNote.title !== undefined && { title: updatedPartialNote.title }),
+                    ...(updatedPartialNote.subtitle !== undefined && { subtitle: updatedPartialNote.subtitle }),
+                    ...(finalContent !== undefined && { content: finalContent }),
                   };
-                  return { ...prevNote, ...changes };
+
+                  return { ...prevNote, ...changes } as Note;
                 });
               }}
               onUpdate={handleUpdateNote}
